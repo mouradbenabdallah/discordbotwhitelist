@@ -150,7 +150,9 @@ slot can never both succeed.
 
 ## Notes
 
-- Denied applicants can re-apply (their existing row, unique on `discord_id`, is reopened to `pending`).
+- Denied applicants can re-apply 24 hours after the admin's Deny click (based on `reviewed_at`), and
+  only if slots are still available — their existing row, unique on `discord_id`, is reopened to
+  `pending`. Revoked applicants can re-apply immediately.
 - Users with a `pending` or `accepted` application are blocked from re-applying.
 - All user-facing text is in English.
 - Requires **Node 23.4+** (uses the built-in `node:sqlite` module and the global `fetch` for webhook notifications).

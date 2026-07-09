@@ -39,12 +39,32 @@ function takeAnswers(userId) {
   return entry.answers;
 }
 
+// Denied applicants must wait 24h from the admin's Deny click before they can
+// reapply. Returns the cooldown's end time (ms epoch) if still in effect,
+// otherwise null (either not denied, or the cooldown already passed).
+const DENY_REAPPLY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+function denyCooldownEndsAt(app) {
+  if (!app || app.status !== 'denied' || !app.reviewed_at) return null;
+  const endsAt = new Date(app.reviewed_at).getTime() + DENY_REAPPLY_COOLDOWN_MS;
+  return endsAt > Date.now() ? endsAt : null;
+}
+
 async function handleApplyButton(interaction) {
   const existing = await db.getApplicationByDiscordId(interaction.user.id);
   if (existing && (existing.status === 'pending' || existing.status === 'accepted')) {
     const statusText = existing.status === 'pending' ? 'a pending' : 'an accepted';
     await interaction.reply({
       content: `You already have ${statusText} whitelist application. You cannot apply again right now.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const cooldownEndsAt = denyCooldownEndsAt(existing);
+  if (cooldownEndsAt) {
+    await interaction.reply({
+      content: `Your application was denied. You can reapply <t:${Math.floor(cooldownEndsAt / 1000)}:R>.`,
       ephemeral: true,
     });
     return;
@@ -94,6 +114,12 @@ async function handleApplyModalStep3Submit(client, interaction) {
   const existing = await db.getApplicationByDiscordId(interaction.user.id);
   if (existing && (existing.status === 'pending' || existing.status === 'accepted')) {
     await interaction.editReply('You already have a pending or accepted whitelist application.');
+    return;
+  }
+
+  const cooldownEndsAt = denyCooldownEndsAt(existing);
+  if (cooldownEndsAt) {
+    await interaction.editReply(`Your application was denied. You can reapply <t:${Math.floor(cooldownEndsAt / 1000)}:R>.`);
     return;
   }
 
